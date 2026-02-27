@@ -5,7 +5,9 @@ import {
   ArrowLeft, Package, MapPin, CreditCard,
   CheckCircle, Clock, Truck, XCircle,
   ShoppingBag, ChevronRight, Home,
-  Hash, Calendar, Phone,
+  Hash, Calendar, Phone, Mail,
+  Banknote, BadgeCheck, Hourglass,
+  AlertCircle, Tag, ReceiptText,
 } from "lucide-react";
 import { getOrderById } from "../../services/api";
 import LoadingSpinner   from "../../components/common/LoadingSpinner";
@@ -25,9 +27,12 @@ const C = {
   surface:    "#ffffff",
   bg:         "#f4f5f8",
   green:      "#22c55e",
+  greenLight: "rgba(34,197,94,0.09)",
   red:        "#ef4444",
+  redLight:   "rgba(239,68,68,0.08)",
 };
 
+// ── Status config ──────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   Processing: {
     color:  "#1d4ed8",
@@ -51,7 +56,7 @@ const STATUS_CONFIG = {
     border: "rgba(139,92,246,0.2)",
     icon:   Truck,
     step:   3,
-    desc:   "Your order is on the way! 🚚",
+    desc:   "Your order is on the way!",
   },
   Delivered: {
     color:  "#15803d",
@@ -59,7 +64,7 @@ const STATUS_CONFIG = {
     border: "rgba(34,197,94,0.2)",
     icon:   CheckCircle,
     step:   4,
-    desc:   "Delivered! Enjoy your order 💝",
+    desc:   "Delivered! Enjoy your order.",
   },
   Cancelled: {
     color:  "#b91c1c",
@@ -78,39 +83,44 @@ const STEPS = [
   { label: "Delivered", icon: CheckCircle, step: 4 },
 ];
 
-// ── Reusable card shell ────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt = (n) =>
+  (n ?? 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+// ── Card shell ─────────────────────────────────────────────────────────────
 const Card = ({ children, className = "", accent = false }) => (
   <div
-    className={`relative rounded-3xl overflow-hidden ${className}`}
+    className={`relative rounded-2xl sm:rounded-3xl overflow-hidden
+      ${className}`}
     style={{
       background: C.surface,
       border:     `1px solid ${C.border}`,
-      boxShadow:  "0 2px 16px rgba(19,33,60,0.05)",
+      boxShadow:  "0 2px 14px rgba(19,33,60,0.05)",
     }}
   >
     {accent && (
-      <div
-        className="h-[3px]"
+      <div className="h-[3px]"
         style={{
           background: "linear-gradient(to right,#d4b26a,#264670)",
-        }}
-      />
+        }} />
     )}
-    <div className="p-5 sm:p-6">{children}</div>
+    <div className="p-4 sm:p-5 lg:p-6">{children}</div>
   </div>
 );
 
-const SectionTitle = ({ icon: Icon, title }) => (
-  <div className="flex items-center gap-2.5 mb-5">
-    <div
-      className="w-8 h-8 rounded-xl flex items-center justify-center
-        flex-shrink-0"
+// ── Section title ──────────────────────────────────────────────────────────
+const SectionTitle = ({ icon: Icon, title, accent = C.gold }) => (
+  <div className="flex items-center gap-2.5 mb-4">
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center
+      flex-shrink-0"
       style={{
-        background: C.goldLight,
-        border:     `1px solid ${C.goldBorder}`,
-      }}
-    >
-      <Icon size={14} style={{ color: C.gold }} />
+        background: `${accent}18`,
+        border:     `1px solid ${accent}30`,
+      }}>
+      <Icon size={14} style={{ color: accent }} />
     </div>
     <h3 className="font-black text-sm" style={{ color: C.text }}>
       {title}
@@ -118,16 +128,17 @@ const SectionTitle = ({ icon: Icon, title }) => (
   </div>
 );
 
-const InfoRow = ({ label, value, mono = false, valueColor }) => (
+// ── Info row ───────────────────────────────────────────────────────────────
+const InfoRow = ({ label, value, mono = false, valueColor, last = false }) => (
   <div
-    className="flex items-center justify-between py-2.5"
-    style={{ borderBottom: `1px solid ${C.border}` }}
+    className="flex items-center justify-between py-2.5 gap-3"
+    style={{ borderBottom: last ? "none" : `1px solid ${C.border}` }}
   >
-    <span className="text-xs" style={{ color: C.textSub }}>
+    <span className="text-xs flex-shrink-0" style={{ color: C.textSub }}>
       {label}
     </span>
     <span
-      className={`text-xs font-bold ${mono ? "font-mono" : ""}`}
+      className={`text-xs font-bold text-right ${mono ? "font-mono" : ""}`}
       style={{ color: valueColor ?? C.text }}
     >
       {value}
@@ -138,13 +149,13 @@ const InfoRow = ({ label, value, mono = false, valueColor }) => (
 // ── Progress tracker ───────────────────────────────────────────────────────
 const ProgressTracker = ({ currentStep }) => (
   <Card accent>
-    <p
-      className="text-[10px] font-black uppercase tracking-widest mb-6"
-      style={{ color: C.textMuted }}
-    >
+    <p className="text-[10px] font-black uppercase tracking-widest mb-5"
+      style={{ color: C.textMuted }}>
       Order Progress
     </p>
-    <div className="flex items-start justify-between">
+
+    {/* Desktop/tablet — horizontal */}
+    <div className="hidden sm:flex items-start justify-between">
       {STEPS.map((s, idx) => {
         const Icon        = s.icon;
         const isCompleted = currentStep > s.step;
@@ -155,25 +166,26 @@ const ProgressTracker = ({ currentStep }) => (
               <motion.div
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{
-                  duration: 1.6, repeat: isActive ? Infinity : 0,
-                  ease: "easeInOut",
+                  duration: 1.6,
+                  repeat:   isActive ? Infinity : 0,
+                  ease:     "easeInOut",
                 }}
                 className="w-10 h-10 rounded-full flex items-center
-                  justify-center shadow-md"
+                  justify-center"
                 style={
-                  isCompleted
-                    ? { background: C.green,   color: "#fff" }
-                    : isActive
-                    ? {
-                        background:
-                          `linear-gradient(135deg,${C.navy},${C.navyLight})`,
-                        color:     "#fff",
-                        boxShadow: "0 4px 14px rgba(19,33,60,0.3)",
-                      }
-                    : {
-                        background: "rgba(19,33,60,0.06)",
-                        color:      C.textMuted,
-                      }
+                  isCompleted ? {
+                    background: C.green,
+                    color:      "#fff",
+                    boxShadow:  "0 2px 10px rgba(34,197,94,0.3)",
+                  } : isActive ? {
+                    background:
+                      `linear-gradient(135deg,${C.navy},${C.navyLight})`,
+                    color:     "#fff",
+                    boxShadow: "0 4px 14px rgba(19,33,60,0.28)",
+                  } : {
+                    background: "rgba(19,33,60,0.06)",
+                    color:      C.textMuted,
+                  }
                 }
               >
                 <Icon size={16} strokeWidth={2} />
@@ -190,13 +202,10 @@ const ProgressTracker = ({ currentStep }) => (
                 {s.label}
               </span>
             </div>
-
             {idx < STEPS.length - 1 && (
               <div className="flex-1 mx-2 mb-5">
-                <div
-                  className="h-1.5 rounded-full overflow-hidden"
-                  style={{ background: "rgba(19,33,60,0.06)" }}
-                >
+                <div className="h-1.5 rounded-full overflow-hidden"
+                  style={{ background: "rgba(19,33,60,0.06)" }}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{
@@ -212,6 +221,81 @@ const ProgressTracker = ({ currentStep }) => (
                 </div>
               </div>
             )}
+          </div>
+        );
+      })}
+    </div>
+
+    {/* Mobile — vertical timeline */}
+    <div className="sm:hidden space-y-0">
+      {STEPS.map((s, idx) => {
+        const Icon        = s.icon;
+        const isCompleted = currentStep > s.step;
+        const isActive    = currentStep === s.step;
+        const isLast      = idx === STEPS.length - 1;
+        return (
+          <div key={s.label} className="flex items-start gap-3">
+            {/* Icon + line */}
+            <div className="flex flex-col items-center flex-shrink-0">
+              <motion.div
+                animate={{ scale: isActive ? [1, 1.1, 1] : 1 }}
+                transition={{
+                  duration: 1.6,
+                  repeat:   isActive ? Infinity : 0,
+                }}
+                className="w-8 h-8 rounded-full flex items-center
+                  justify-center"
+                style={
+                  isCompleted ? {
+                    background: C.green,
+                    color:      "#fff",
+                  } : isActive ? {
+                    background:
+                      `linear-gradient(135deg,${C.navy},${C.navyLight})`,
+                    color: "#fff",
+                  } : {
+                    background: "rgba(19,33,60,0.06)",
+                    color:      C.textMuted,
+                  }
+                }
+              >
+                <Icon size={14} strokeWidth={2} />
+              </motion.div>
+              {!isLast && (
+                <div className="w-0.5 flex-1 mt-1 mb-1 rounded-full
+                  overflow-hidden" style={{ height: 28,
+                    background: "rgba(19,33,60,0.06)" }}>
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{
+                      height: currentStep > s.step ? "100%" : "0%",
+                    }}
+                    transition={{ duration: 0.5, delay: idx * 0.1 }}
+                    className="w-full rounded-full"
+                    style={{ background: C.gold }}
+                  />
+                </div>
+              )}
+            </div>
+            {/* Label */}
+            <p className="text-xs font-semibold pt-1.5 pb-4"
+              style={{
+                color: isCompleted ? C.green
+                  : isActive       ? C.navy
+                  : C.textMuted,
+              }}>
+              {s.label}
+              {isActive && (
+                <span className="ml-2 text-[10px] font-black px-1.5 py-0.5
+                  rounded-full"
+                  style={{
+                    background: `${C.navy}15`,
+                    color:      C.navy,
+                  }}>
+                  Current
+                </span>
+              )}
+            </p>
           </div>
         );
       })}
@@ -245,76 +329,62 @@ const OrderDetail = () => {
   const items       = order.items ?? [];
   const totalQty    = items.reduce((s, i) => s + i.quantity, 0);
 
+  // Payment icon + colour helper
+  const isPaid    = order.paymentStatus === "Paid"   || order.isPaid;
+  const isFailed  = order.paymentStatus === "Failed";
+  const payIcon   = isPaid ? BadgeCheck : isFailed ? AlertCircle : Hourglass;
+  const payColor  = isPaid ? "#15803d"  : isFailed ? C.red       : "#b45309";
+  const PayIcon   = payIcon;
+
   return (
     <div className="min-h-screen" style={{ background: C.bg }}>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8
-        py-8 sm:py-12">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8
+        py-5 sm:py-8 lg:py-12">
 
         {/* ── Top nav ───────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0   }}
-          className="flex items-center justify-between mb-8 flex-wrap gap-3"
+          className="flex items-center justify-between mb-5 sm:mb-8
+            gap-3 flex-wrap"
         >
-          {/* Back */}
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{   scale: 0.95 }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{   scale: 0.96 }}
             onClick={() => navigate("/user/orders")}
             className="flex items-center gap-2 text-sm font-semibold
               transition-colors"
             style={{ color: C.textSub }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = C.gold)
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = C.textSub)
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = C.textSub)}
           >
             <ArrowLeft size={16} />
-            All Orders
+            <span>All Orders</span>
           </motion.button>
 
-          {/* Breadcrumb */}
-          <nav
-            className="hidden sm:flex items-center gap-1.5 text-xs
-              font-semibold"
-            style={{ color: C.textMuted }}
-          >
-            <Link
-              to="/user/home"
-              className="flex items-center gap-1 transition-colors
-                hover:underline"
+          {/* Breadcrumb — hidden on small phones */}
+          <nav className="hidden sm:flex items-center gap-1.5 text-xs
+            font-semibold" style={{ color: C.textMuted }}>
+            <Link to="/user/home"
+              className="flex items-center gap-1 transition-colors"
               style={{ color: C.textSub }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = C.gold)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = C.textSub)
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = C.textSub)}
             >
-              <Home size={11} />
-              Home
+              <Home size={11} /> Home
             </Link>
             <ChevronRight size={11} style={{ color: C.textMuted }} />
-            <Link
-              to="/user/orders"
-              className="transition-colors hover:underline"
+            <Link to="/user/orders"
+              className="transition-colors"
               style={{ color: C.textSub }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = C.gold)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = C.textSub)
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = C.textSub)}
             >
               Orders
             </Link>
             <ChevronRight size={11} style={{ color: C.textMuted }} />
-            <span
-              className="font-bold truncate max-w-[120px]"
-              style={{ color: C.text }}
-            >
+            <span className="font-bold truncate max-w-[100px]"
+              style={{ color: C.text }}>
               #{order._id.slice(-8).toUpperCase()}
             </span>
           </nav>
@@ -324,80 +394,71 @@ const OrderDetail = () => {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0  }}
-          className="mb-6"
+          className="mb-5"
         >
-          <h1
-            className="text-2xl sm:text-3xl font-black"
-            style={{ color: C.text }}
-          >
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black"
+            style={{ color: C.text }}>
             Order Details
           </h1>
-          <div
-            className="flex items-center gap-2 mt-1"
-            style={{ color: C.textMuted }}
-          >
-            <Hash size={12} />
-            <span className="text-xs font-mono font-semibold">
-              {order._id.slice(-12).toUpperCase()}
-            </span>
-            <span className="text-xs">·</span>
-            <Calendar size={11} />
-            <span className="text-xs">
-              {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                day: "numeric", month: "long", year: "numeric",
-              })}
-            </span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+            <div className="flex items-center gap-1"
+              style={{ color: C.textMuted }}>
+              <Hash size={11} />
+              <span className="text-[11px] font-mono font-semibold">
+                {order._id.slice(-12).toUpperCase()}
+              </span>
+            </div>
+            <span style={{ color: C.textMuted }} className="text-xs">·</span>
+            <div className="flex items-center gap-1"
+              style={{ color: C.textMuted }}>
+              <Calendar size={11} />
+              <span className="text-[11px]">
+                {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}
+              </span>
+            </div>
           </div>
         </motion.div>
 
         {/* ── Status banner ─────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, y: -8 }}
+          initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0  }}
-          transition={{ delay: 0.08 }}
-          className="flex items-center gap-4 p-4 sm:p-5 rounded-3xl mb-6"
-          style={{
-            background: cfg.bg,
-            border:     `1px solid ${cfg.border}`,
-          }}
+          transition={{ delay: 0.07 }}
+          className="flex items-center gap-3 sm:gap-4 p-3.5 sm:p-5
+            rounded-2xl sm:rounded-3xl mb-5"
+          style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
         >
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center
-              justify-center flex-shrink-0"
-            style={{
-              background: cfg.bg,
-              border:     `1px solid ${cfg.border}`,
-            }}
-          >
-            <StatusIcon size={22} style={{ color: cfg.color }} />
+          {/* Status icon */}
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl
+            flex items-center justify-center flex-shrink-0"
+            style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+            <StatusIcon size={20} style={{ color: cfg.color }} />
           </div>
-          <div className="flex-1">
-            <p
-              className="font-black text-base leading-none"
-              style={{ color: cfg.color }}
-            >
+
+          {/* Label + desc */}
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-sm sm:text-base leading-none"
+              style={{ color: cfg.color }}>
               {order.orderStatus}
             </p>
-            <p className="text-xs mt-1" style={{ color: C.textSub }}>
+            <p className="text-xs mt-0.5 truncate"
+              style={{ color: C.textSub }}>
               {cfg.desc}
             </p>
           </div>
-          <div
-            className="hidden sm:flex flex-col items-end flex-shrink-0"
-          >
-            <p
-              className="text-xl font-black"
+
+          {/* Total — always visible, smaller on mobile */}
+          <div className="flex flex-col items-end flex-shrink-0">
+            <p className="text-base sm:text-xl font-black"
               style={{
                 background:           "linear-gradient(to right,#d4b26a,#c69e4f)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor:  "transparent",
                 backgroundClip:       "text",
-              }}
-            >
-              ₹{order.totalPrice?.toLocaleString("en-IN", {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })}
+              }}>
+              ₹{fmt(order.totalPrice)}
             </p>
             <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>
               {totalQty} item{totalQty !== 1 ? "s" : ""}
@@ -411,9 +472,9 @@ const OrderDetail = () => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0  }}
-              exit={{    opacity: 0         }}
-              transition={{ delay: 0.12 }}
-              className="mb-6"
+              exit={{    opacity: 0        }}
+              transition={{ delay: 0.1 }}
+              className="mb-5"
             >
               <ProgressTracker currentStep={cfg.step} />
             </motion.div>
@@ -421,219 +482,229 @@ const OrderDetail = () => {
         </AnimatePresence>
 
         {/* ── Main grid ─────────────────────────────────────────── */}
-        <div className="grid md:grid-cols-5 gap-5">
+        <div className="grid md:grid-cols-5 gap-4 sm:gap-5">
 
-          {/* Left col — items (wider) */}
-          <div className="md:col-span-3 space-y-5">
-
+          {/* ── Left / wider — items ────────────────────────────── */}
+          <div className="md:col-span-3 space-y-4 sm:space-y-5">
             <Card>
               <SectionTitle
                 icon={ShoppingBag}
                 title={`Order Items (${items.length})`}
               />
-              <div className="space-y-2.5">
+
+              <div className="space-y-2">
                 {items.map((item, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0   }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-3 rounded-2xl"
+                    className="flex items-center gap-3 p-2.5 sm:p-3
+                      rounded-xl sm:rounded-2xl"
                     style={{ background: C.bg }}
                   >
                     <img
                       src={item.image || "/placeholder.jpg"}
                       alt={item.name}
-                      className="w-14 h-14 rounded-2xl object-cover
-                        flex-shrink-0"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl
+                        sm:rounded-2xl object-cover flex-shrink-0"
                       style={{ border: `1px solid ${C.border}` }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p
-                        className="font-semibold text-sm truncate"
-                        style={{ color: C.text }}
-                      >
+                      <p className="font-semibold text-xs sm:text-sm truncate"
+                        style={{ color: C.text }}>
                         {item.name}
                       </p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: C.textSub }}
-                      >
-                        ₹{item.price?.toLocaleString("en-IN", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })} × {item.quantity}
+                      <p className="text-[11px] mt-0.5"
+                        style={{ color: C.textSub }}>
+                        ₹{fmt(item.price)} × {item.quantity}
                       </p>
                     </div>
-                    <p
-                      className="text-sm font-black flex-shrink-0"
-                      style={{ color: C.gold }}
-                    >
-                      ₹{(item.price * item.quantity).toLocaleString("en-IN", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}
+                    <p className="text-xs sm:text-sm font-black flex-shrink-0"
+                      style={{ color: C.gold }}>
+                      ₹{fmt(item.price * item.quantity)}
                     </p>
                   </motion.div>
                 ))}
               </div>
 
-              {/* Price summary */}
-              <div
-                className="mt-5 pt-4 space-y-1"
-                style={{ borderTop: `1px solid ${C.border}` }}
-              >
-                <div className="flex justify-between py-1.5">
-                  <span className="text-xs" style={{ color: C.textSub }}>
-                    Subtotal
-                  </span>
-                  <span className="text-xs font-semibold"
-                    style={{ color: C.text }}>
-                    ₹{order.itemsPrice?.toLocaleString("en-IN", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-xs" style={{ color: C.textSub }}>
-                    Shipping
-                  </span>
-                  <span
-                    className="text-xs font-bold"
-                    style={{
-                      color: order.shippingPrice === 0
-                        ? "#15803d"
-                        : C.text,
-                    }}
-                  >
-                    {order.shippingPrice === 0
+              {/* Price breakdown */}
+              <div className="mt-4 pt-3 space-y-0"
+                style={{ borderTop: `1px solid ${C.border}` }}>
+                <InfoRow
+                  label="Subtotal"
+                  value={`₹${fmt(order.itemsPrice)}`}
+                />
+                <InfoRow
+                  label="Shipping"
+                  value={
+                    order.shippingPrice === 0
                       ? "FREE"
-                      : `₹${order.shippingPrice?.toLocaleString("en-IN", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}`}
-                  </span>
-                </div>
-                <div
-                  className="flex justify-between pt-3"
-                  style={{ borderTop: `1px solid ${C.border}` }}
-                >
-                  <span
-                    className="text-sm font-black"
-                    style={{ color: C.text }}
-                  >
+                      : `₹${fmt(order.shippingPrice)}`
+                  }
+                  valueColor={
+                    order.shippingPrice === 0 ? "#15803d" : C.text
+                  }
+                />
+                <div className="flex items-center justify-between pt-3"
+                  style={{ borderTop: `1px solid ${C.border}` }}>
+                  <span className="text-sm font-black"
+                    style={{ color: C.text }}>
                     Total
                   </span>
-                  <span
-                    className="text-base font-black"
+                  <span className="text-base font-black"
                     style={{
                       background:           "linear-gradient(to right,#d4b26a,#c69e4f)",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor:  "transparent",
                       backgroundClip:       "text",
-                    }}
-                  >
-                    ₹{order.totalPrice?.toLocaleString("en-IN", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
+                    }}>
+                    ₹{fmt(order.totalPrice)}
                   </span>
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Right col — details */}
-          <div className="md:col-span-2 space-y-5">
+          {/* ── Right / narrower — details ───────────────────────── */}
+          <div className="md:col-span-2 space-y-4 sm:space-y-5">
 
-            {/* Shipping */}
+            {/* Shipping address */}
             <Card>
               <SectionTitle icon={MapPin} title="Shipping Address" />
-              <div
-                className="text-sm space-y-2"
-                style={{ color: C.textSub }}
-              >
-                <p
-                  className="font-black text-base"
-                  style={{ color: C.text }}
-                >
+              <div className="rounded-xl p-3"
+                style={{ background: C.bg }}>
+                <p className="font-black text-sm mb-2"
+                  style={{ color: C.text }}>
                   {order.shippingAddress?.fullName}
                 </p>
-                <p className="leading-relaxed text-xs">
-                  {order.shippingAddress?.street}
-                  {order.shippingAddress?.city &&
-                    `, ${order.shippingAddress.city}`}
-                  {order.shippingAddress?.state &&
-                    `, ${order.shippingAddress.state}`}
-                  {order.shippingAddress?.pincode &&
-                    ` — ${order.shippingAddress.pincode}`}
-                  {order.shippingAddress?.country &&
-                    `, ${order.shippingAddress.country}`}
-                </p>
-                {order.shippingAddress?.phone && (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Phone size={11} style={{ color: C.textMuted }} />
-                    <span
-                      className="text-xs font-semibold"
-                      style={{ color: C.text }}
-                    >
-                      {order.shippingAddress.phone}
+
+                <div className="space-y-1.5 text-xs"
+                  style={{ color: C.textSub }}>
+                  <div className="flex items-start gap-1.5">
+                    <MapPin size={11} className="mt-0.5 flex-shrink-0"
+                      style={{ color: C.textMuted }} />
+                    <span className="leading-snug">
+                      {[
+                        order.shippingAddress?.street,
+                        order.shippingAddress?.city,
+                        order.shippingAddress?.state,
+                        order.shippingAddress?.pincode
+                          ? `– ${order.shippingAddress.pincode}` : null,
+                        order.shippingAddress?.country,
+                      ].filter(Boolean).join(", ")}
                     </span>
                   </div>
-                )}
+
+                  {order.shippingAddress?.phone && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone size={11} style={{ color: C.textMuted }} />
+                      <span className="font-semibold"
+                        style={{ color: C.text }}>
+                        {order.shippingAddress.phone}
+                      </span>
+                    </div>
+                  )}
+
+                  {order.shippingAddress?.email && (
+                    <div className="flex items-center gap-1.5">
+                      <Mail size={11} style={{ color: C.textMuted }} />
+                      <span className="truncate"
+                        style={{ color: C.text }}>
+                        {order.shippingAddress.email}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
 
             {/* Payment */}
             <Card>
               <SectionTitle icon={CreditCard} title="Payment" />
-              <div className="divide-y"
-                style={{ "--tw-divide-opacity": 1 }}>
-                <InfoRow
-                  label="Method"
-                  value={order.paymentMethod}
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    order.paymentStatus === "Paid"    ? "✅ Paid"
-                    : order.paymentStatus === "Failed"  ? "❌ Failed"
-                    : order.paymentStatus === "Pending" ? "⏳ Pending"
-                    : order.isPaid                      ? "✅ Paid"
-                    : "⏳ Pending"
-                  }
-                  valueColor={
-                    (order.paymentStatus === "Paid" || order.isPaid)
-                      ? "#15803d"
-                      : order.paymentStatus === "Failed"
-                      ? C.red
-                      : "#b45309"
-                  }
-                />
-                {order.isPaid && order.paidAt && (
-                  <InfoRow
-                    label="Paid At"
-                    value={new Date(order.paidAt).toLocaleDateString("en-IN")}
-                  />
-                )}
-                <InfoRow
-                  label="Delivery"
-                  value={order.isDelivered ? "✅ Delivered" : "⏳ Pending"}
-                  valueColor={order.isDelivered ? "#15803d" : "#b45309"}
-                />
+
+              {/* Method chip */}
+              <div className="flex items-center gap-2.5 p-3 rounded-xl mb-3"
+                style={{ background: C.bg }}>
+                <div className="w-8 h-8 rounded-lg flex items-center
+                  justify-center flex-shrink-0"
+                  style={{
+                    background: C.goldLight,
+                    border:     `1px solid ${C.goldBorder}`,
+                  }}>
+                  <Banknote size={14} style={{ color: C.gold }} />
+                </div>
+                <div>
+                  <p className="text-xs font-black"
+                    style={{ color: C.text }}>
+                    {order.paymentMethod}
+                  </p>
+                  <p className="text-[10px]" style={{ color: C.textSub }}>
+                    Payment method
+                  </p>
+                </div>
+              </div>
+
+              {/* Status chip */}
+              <div className="flex items-center gap-2.5 p-3 rounded-xl"
+                style={{
+                  background: isPaid
+                    ? "rgba(34,197,94,0.08)"
+                    : isFailed
+                    ? C.redLight
+                    : "rgba(180,83,9,0.07)",
+                  border: `1px solid ${
+                    isPaid   ? "rgba(34,197,94,0.2)"
+                    : isFailed ? "rgba(239,68,68,0.2)"
+                    : "rgba(180,83,9,0.18)"
+                  }`,
+                }}>
+                <PayIcon size={15} style={{ color: payColor }}
+                  className="flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-black"
+                    style={{ color: payColor }}>
+                    {isPaid   ? "Payment Received"
+                     : isFailed ? "Payment Failed"
+                     : "Payment Pending"}
+                  </p>
+                  {order.isPaid && order.paidAt && (
+                    <p className="text-[10px]" style={{ color: C.textSub }}>
+                      {new Date(order.paidAt).toLocaleDateString("en-IN")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Delivery status */}
+              <div className="mt-3 flex items-center gap-2.5 p-3 rounded-xl"
+                style={{
+                  background: order.isDelivered
+                    ? "rgba(34,197,94,0.08)"
+                    : "rgba(19,33,60,0.03)",
+                  border: `1px solid ${
+                    order.isDelivered
+                      ? "rgba(34,197,94,0.2)"
+                      : C.border
+                  }`,
+                }}>
+                <Truck size={14}
+                  style={{
+                    color: order.isDelivered ? C.green : C.textMuted,
+                    flexShrink: 0,
+                  }} />
+                <p className="text-xs font-bold"
+                  style={{
+                    color: order.isDelivered ? "#15803d" : C.textSub,
+                  }}>
+                  {order.isDelivered ? "Delivered" : "Not yet delivered"}
+                </p>
               </div>
             </Card>
 
             {/* Order info */}
             <Card>
-              <p
-                className="text-[10px] font-black uppercase tracking-widest
-                  mb-4"
-                style={{ color: C.textMuted }}
-              >
-                Order Info
-              </p>
+              <SectionTitle icon={ReceiptText} title="Order Info" />
               <div>
                 <InfoRow
                   label="Order ID"
@@ -644,12 +715,18 @@ const OrderDetail = () => {
                   label="Placed On"
                   value={new Date(order.createdAt).toLocaleDateString(
                     "en-IN",
-                    { day: "numeric", month: "short", year: "numeric" }
+                    { day: "numeric", month: "short", year: "numeric" },
                   )}
                 />
                 <InfoRow
                   label="Total Items"
                   value={`${totalQty} item${totalQty !== 1 ? "s" : ""}`}
+                />
+                <InfoRow
+                  label="Order Value"
+                  value={`₹${fmt(order.totalPrice)}`}
+                  valueColor={C.gold}
+                  last
                 />
               </div>
             </Card>
@@ -661,13 +738,14 @@ const OrderDetail = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0  }}
           transition={{ delay: 0.2 }}
-          className="flex flex-col sm:flex-row gap-3 mt-8 pt-6"
+          className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8 pt-5 sm:pt-6"
           style={{ borderTop: `1px solid ${C.border}` }}
         >
           <Link
             to="/user/orders"
             className="flex-1 flex items-center justify-center gap-2
-              py-3.5 rounded-2xl text-sm font-bold transition-all duration-150"
+              py-3 sm:py-3.5 rounded-2xl text-sm font-bold
+              transition-all duration-150"
             style={{
               background: C.surface,
               border:     `1px solid ${C.border}`,
@@ -682,21 +760,20 @@ const OrderDetail = () => {
               e.currentTarget.style.color       = C.textSub;
             }}
           >
-            <ArrowLeft size={15} />
-            All Orders
+            <ArrowLeft size={15} /> All Orders
           </Link>
+
           <Link
-            to="/user/products"
+            to="/shop"
             className="flex-1 flex items-center justify-center gap-2
-              py-3.5 rounded-2xl text-sm font-bold text-white
+              py-3 sm:py-3.5 rounded-2xl text-sm font-bold text-white
               transition-all duration-200"
             style={{
               background: `linear-gradient(135deg,${C.navy},${C.navyLight})`,
-              boxShadow:  "0 6px 20px rgba(19,33,60,0.25)",
+              boxShadow:  "0 6px 20px rgba(19,33,60,0.22)",
             }}
           >
-            <ShoppingBag size={15} />
-            Continue Shopping
+            <ShoppingBag size={15} /> Continue Shopping
           </Link>
         </motion.div>
       </div>
