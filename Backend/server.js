@@ -21,63 +21,35 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// ── Allowed origins ────────────────────────────────────────────────────────
-// CLIENT_URL can be a comma-separated list:
-// CLIENT_URL=https://craftnest-six.vercel.app,https://craftnest.vercel.app
-const EXPLICIT_ORIGINS = (process.env.CLIENT_URL || "https://rumman-portfolio-ryuu.vercel.app")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-
+// ── CORS — universal, allow every origin ──────────────────────────────────
+//
+//  WHY origin: true instead of origin: "*" ?
+//  When credentials: true is set, browsers reject the wildcard "*".
+//  Passing origin: true tells cors() to reflect whatever origin the
+//  request came from — effectively allowing all origins while still
+//  satisfying the browser's credential rules.
+//
 const corsOptions = {
-  origin: (incomingOrigin, callback) => {
-    // Allow server-to-server / curl / Postman (no origin header)
-    if (!incomingOrigin) return callback(null, true);
-
-    // 1. Exact match against any URL in CLIENT_URL list
-    if (EXPLICIT_ORIGINS.includes(incomingOrigin)) {
-      return callback(null, true);
-    }
-
-    // 2. Allow ANY vercel.app preview URL for the same project
-    //    e.g. craftnest-9t1y28rv8-rumman04s-projects.vercel.app
-    if (/^https:\/\/craftnest[a-z0-9-]*\.vercel\.app$/.test(incomingOrigin)) {
-      return callback(null, true);
-    }
-
-    // 3. Allow localhost on any port during development
-    if (/^http:\/\/localhost(:\d+)?$/.test(incomingOrigin)) {
-      return callback(null, true);
-    }
-
-    // 4. Block everything else
-    console.warn(`[CORS] Blocked origin: ${incomingOrigin}`);
-    callback(new Error(`CORS: origin ${incomingOrigin} is not allowed`));
-  },
-
-  credentials:    true,
+  origin:      true,          // reflect request origin — allows everyone
+  credentials: true,          // allow cookies / Authorization headers
   methods:        ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-
-  // Explicitly handle OPTIONS preflight so Express doesn't 404 it
-  preflightContinue: false,
+  preflightContinue:    false,
   optionsSuccessStatus: 204,
 };
 
-// ── Apply CORS before every other middleware ───────────────────────────────
-// OPTIONS must be handled first — if it hits a route handler it returns 404
-app.options("*", cors(corsOptions));   // handle preflight for all routes
+// Handle preflight requests for every route BEFORE anything else
+app.options("*", cors(corsOptions));
 app.use(cors(corsOptions));
 
+// ── Body parsers ───────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ── Request logger (dev only) ──────────────────────────────────────────────
 if (process.env.NODE_ENV === "development") {
   app.use((req, _res, next) => {
-    console.log(
-      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
-    );
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
     next();
   });
 }
@@ -123,10 +95,7 @@ const startServer = async () => {
       console.log("─────────────────────────────────────────");
       console.log(`🚀 Server     : http://localhost:${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-      console.log(`🔒 CORS origins:`);
-      EXPLICIT_ORIGINS.forEach((o) => console.log(`   • ${o}`));
-      console.log(`   • *.vercel.app (craftnest preview URLs)`);
-      console.log(`   • http://localhost:*`);
+      console.log(`🔓 CORS        : open to all origins`);
       console.log("─────────────────────────────────────────");
     });
   } catch (err) {
