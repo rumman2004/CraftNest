@@ -194,7 +194,7 @@ const Footer = () => {
           style={{ borderTop: "1px solid rgba(19,33,60,0.08)" }}
         >
           <p className="text-xs" style={{ color: "#4f545f" }}>
-            © {year} CraftNest. All rights reserved. Made with ❤️
+            © {year} CraftNest. All rights reserved.
           </p>
           <p className="text-xs" style={{ color: "#4f545f" }}>
             100% Handmade · Eco-Friendly · Unique
