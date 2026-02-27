@@ -95,7 +95,7 @@ const WelcomeSplash = ({ firstName, onDone }) => {
   // Cycle through greetings
   useEffect(() => {
     // Each greeting: 400ms in → 600ms hold → 300ms out
-    const timings = { in: 400, hold: 700, out: 300 };
+    const timings = { in: 400, hold: 600, out: 300 };
 
     if (phase === "in") {
       const t = setTimeout(() => setPhase("hold"), timings.in);
