@@ -1,9 +1,9 @@
-import { Link }          from "react-router-dom";
+import { Link }                    from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect }     from "react";
-import { useAuth }       from "../../context/AuthContext";
-import { useCart }       from "../../context/CartContext";
-import FeaturedProducts  from "../../components/sections/FeaturedProducts";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth }                 from "../../context/AuthContext";
+import { useCart }                 from "../../context/CartContext";
+import FeaturedProducts            from "../../components/sections/FeaturedProducts";
 import {
   Package, ShoppingCart, User, ShoppingBag,
   ArrowRight, Sparkles,
@@ -23,23 +23,32 @@ const C = {
   bg:         "#f4f5f8",
 };
 
-// ── "Welcome" in 12 languages ──────────────────────────────────────────────
+// ── Greetings — 18 languages, ordered for visual variety ──────────────────
 const GREETINGS = [
-  { word: "Welcome",      lang: "English"    },
-  { word: "स्वागत",        lang: "Hindi"      },
-  { word: "Bienvenido",   lang: "Spanish"    },
-  { word: "Bienvenue",    lang: "French"     },
-  { word: "Willkommen",   lang: "German"     },
-  { word: "Benvenuto",    lang: "Italian"    },
-  { word: "欢迎",          lang: "Chinese"    },
-  { word: "ようこそ",       lang: "Japanese"   },
-  { word: "환영합니다",     lang: "Korean"     },
-  { word: "أهلاً وسهلاً",  lang: "Arabic"     },
-  { word: "Добро пожаловать", lang: "Russian" },
-  { word: "Bem-vindo",    lang: "Portuguese" },
+  { word: "Welcome",             lang: "English",    dir: "ltr" },
+  { word: "Bienvenido",          lang: "Spanish",    dir: "ltr" },
+  { word: "Bienvenue",           lang: "French",     dir: "ltr" },
+  { word: "Willkommen",          lang: "German",     dir: "ltr" },
+  { word: "Benvenuto",           lang: "Italian",    dir: "ltr" },
+  { word: "Bem-vindo",           lang: "Portuguese", dir: "ltr" },
+  { word: "Добро пожаловать",    lang: "Russian",    dir: "ltr" },
+  { word: "Hoş geldiniz",        lang: "Turkish",    dir: "ltr" },
+  { word: "Welkom",              lang: "Dutch",      dir: "ltr" },
+  { word: "स्वागत",              lang: "Hindi",      dir: "ltr" },
+  { word: "স্বাগতম",             lang: "Bengali",    dir: "ltr" },
+  { word: "ਸੁਆਗਤ",              lang: "Punjabi",    dir: "ltr" },
+  { word: "أهلاً وسهلاً",        lang: "Arabic",     dir: "rtl" },
+  { word: "خوش آمدید",           lang: "Persian",    dir: "rtl" },
+  { word: "欢迎",                 lang: "Chinese",    dir: "ltr" },
+  { word: "ようこそ",              lang: "Japanese",   dir: "ltr" },
+  { word: "환영합니다",            lang: "Korean",     dir: "ltr" },
+  { word: "Karibu",              lang: "Swahili",    dir: "ltr" },
 ];
 
-// ── Framer variants ────────────────────────────────────────────────────────
+// Timings — fast enough to feel snappy, slow enough to read each word
+const T = { in: 380, hold: 520, out: 260 };
+
+// ── Variants ───────────────────────────────────────────────────────────────
 const stagger = {
   hidden: {},
   show:   { transition: { staggerChildren: 0.08 } },
@@ -52,7 +61,7 @@ const fadeUp = {
   },
 };
 
-// ── Quick link card ────────────────────────────────────────────────────────
+// ── Quick card ─────────────────────────────────────────────────────────────
 const QuickCard = ({ to, icon: Icon, label, accent, sub }) => (
   <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
     <Link
@@ -72,10 +81,8 @@ const QuickCard = ({ to, icon: Icon, label, accent, sub }) => (
         e.currentTarget.style.boxShadow   = "0 2px 12px rgba(19,33,60,0.05)";
       }}
     >
-      <div
-        className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3"
-        style={{ background: `${accent}15`, border: `1px solid ${accent}30` }}
-      >
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3"
+        style={{ background: `${accent}15`, border: `1px solid ${accent}30` }}>
         <Icon size={20} style={{ color: accent }} strokeWidth={2} />
       </div>
       <p className="text-sm font-bold" style={{ color: C.text }}>{label}</p>
@@ -86,47 +93,44 @@ const QuickCard = ({ to, icon: Icon, label, accent, sub }) => (
   </motion.div>
 );
 
-// ── Splash screen ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// Splash
+// ═══════════════════════════════════════════════════════════════════════════
 const WelcomeSplash = ({ firstName, onDone }) => {
   const [index,   setIndex  ] = useState(0);
-  const [phase,   setPhase  ] = useState("in");   // "in" | "hold" | "out"
-  const [leaving, setLeaving] = useState(false);  // triggers whole-splash exit
+  const [phase,   setPhase  ] = useState("in");
+  const [leaving, setLeaving] = useState(false);
 
-  // Cycle through greetings
+  const finish = useCallback(() => {
+    setLeaving(true);
+    setTimeout(onDone, 750);
+  }, [onDone]);
+
   useEffect(() => {
-    // Each greeting: 400ms in → 600ms hold → 300ms out
-    const timings = { in: 400, hold: 600, out: 300 };
-
     if (phase === "in") {
-      const t = setTimeout(() => setPhase("hold"), timings.in);
+      const t = setTimeout(() => setPhase("hold"), T.in);
       return () => clearTimeout(t);
     }
-
     if (phase === "hold") {
-      const t = setTimeout(() => setPhase("out"), timings.hold);
+      const t = setTimeout(() => setPhase("out"), T.hold);
       return () => clearTimeout(t);
     }
-
     if (phase === "out") {
       const t = setTimeout(() => {
         const next = index + 1;
-        if (next >= GREETINGS.length) {
-          // All greetings done — animate the whole splash away
-          setLeaving(true);
-          setTimeout(onDone, 700);
-        } else {
-          setIndex(next);
-          setPhase("in");
-        }
-      }, timings.out);
+        if (next >= GREETINGS.length) finish();
+        else { setIndex(next); setPhase("in"); }
+      }, T.out);
       return () => clearTimeout(t);
     }
-  }, [phase, index, onDone]);
+  }, [phase, index, finish]);
 
-  const { word, lang } = GREETINGS[index];
+  const { word, lang, dir } = GREETINGS[index];
+  const progress = (index + 1) / GREETINGS.length;
 
-  // Letter-by-letter animation for the greeting word
-  const letters = [...word];
+  // Non-latin regex for font sizing
+  const isNonLatin = /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/.test(word);
+  const fontSize   = isNonLatin ? "text-4xl sm:text-5xl" : "text-5xl sm:text-6xl";
 
   return (
     <AnimatePresence>
@@ -136,97 +140,208 @@ const WelcomeSplash = ({ firstName, onDone }) => {
           initial={{ opacity: 1 }}
           exit={{
             opacity:    0,
-            scale:      1.04,
-            filter:     "blur(12px)",
-            transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+            scale:      1.06,
+            filter:     "blur(16px)",
+            transition: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
           }}
           className="fixed inset-0 z-50 flex flex-col items-center
             justify-center select-none overflow-hidden"
           style={{
             background:
-              `linear-gradient(135deg, ${C.navy} 0%, ${C.navyLight} 100%)`,
+              `linear-gradient(145deg, #0d1a2e 0%, ${C.navy} 40%,
+               ${C.navyLight} 100%)`,
           }}
         >
-          {/* Dot-grid texture */}
-          <div
-            className="absolute inset-0 opacity-[0.06] pointer-events-none"
+
+          {/* ── Animated background orbs ──────────────────────────── */}
+          <motion.div
+            animate={{
+              x: [0, 30, -20, 0],
+              y: [0, -40, 20, 0],
+              scale: [1, 1.15, 0.95, 1],
+            }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-[-10%] left-[-5%] w-[50vw] h-[50vw]
+              max-w-[500px] max-h-[500px] rounded-full pointer-events-none"
             style={{
-              backgroundImage:
-                "radial-gradient(circle,#d4b26a 1px,transparent 1px)",
-              backgroundSize: "28px 28px",
+              background:
+                "radial-gradient(circle, rgba(212,178,106,0.12) 0%," +
+                "transparent 70%)",
+              filter: "blur(40px)",
+            }}
+          />
+          <motion.div
+            animate={{
+              x: [0, -25, 35, 0],
+              y: [0, 30, -25, 0],
+              scale: [1, 0.9, 1.1, 1],
+            }}
+            transition={{
+              duration: 15, repeat: Infinity,
+              ease: "easeInOut", delay: 2,
+            }}
+            className="absolute bottom-[-10%] right-[-5%] w-[45vw] h-[45vw]
+              max-w-[450px] max-h-[450px] rounded-full pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(38,70,112,0.5) 0%," +
+                "transparent 70%)",
+              filter: "blur(50px)",
+            }}
+          />
+          <motion.div
+            animate={{ x: [0, 20, -15, 0], y: [0, -20, 30, 0] }}
+            transition={{
+              duration: 10, repeat: Infinity,
+              ease: "easeInOut", delay: 4,
+            }}
+            className="absolute top-[30%] right-[10%] w-[20vw] h-[20vw]
+              max-w-[200px] max-h-[200px] rounded-full pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(212,178,106,0.07) 0%," +
+                "transparent 70%)",
+              filter: "blur(30px)",
             }}
           />
 
-          {/* Gold shimmer lines */}
-          <div className="absolute top-0 left-0 right-0 h-[2px]"
+          {/* ── Dot grid ──────────────────────────────────────────── */}
+          <div
+            className="absolute inset-0 opacity-[0.04] pointer-events-none"
             style={{
-              background:
-                "linear-gradient(to right,transparent,#d4b26a,transparent)",
-            }} />
-          <div className="absolute bottom-0 left-0 right-0 h-[2px]"
-            style={{
-              background:
-                "linear-gradient(to right,transparent,#d4b26a,transparent)",
-            }} />
+              backgroundImage:
+                "radial-gradient(circle, #d4b26a 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
 
-          {/* Corner blobs */}
-          <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full
-            blur-3xl pointer-events-none"
-            style={{ background: "rgba(212,178,106,0.08)" }} />
-          <div className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full
-            blur-3xl pointer-events-none"
-            style={{ background: "rgba(38,70,112,0.4)" }} />
+          {/* ── Top + bottom shimmer lines ─────────────────────────── */}
+          {["top-0", "bottom-0"].map((pos) => (
+            <motion.div
+              key={pos}
+              className={`absolute ${pos} left-0 right-0 h-[1.5px]`}
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              style={{
+                background:
+                  "linear-gradient(to right,transparent 0%,#d4b26a 35%," +
+                  "#f5e6b8 50%,#d4b26a 65%,transparent 100%)",
+              }}
+            />
+          ))}
 
-          {/* Brand chip */}
+          {/* ── Brand logo area ────────────────────────────────────── */}
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0   }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="flex items-center gap-2 mb-10"
+            initial={{ opacity: 0, y: -28, scale: 0.85 }}
+            animate={{ opacity: 1,  y: 0,  scale: 1    }}
+            transition={{ delay: 0.15, duration: 0.6,
+              ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col items-center mb-12"
           >
-            <Sparkles size={14} style={{ color: C.gold }} />
-            <span className="text-[11px] font-black tracking-[0.25em] uppercase"
-              style={{ color: "rgba(212,178,106,0.75)" }}>
-              CraftNest
-            </span>
-            <Sparkles size={14} style={{ color: C.gold }} />
+            {/* Icon ring */}
+            <div className="relative mb-4">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 70%," +
+                    "rgba(212,178,106,0.4) 100%)",
+                  padding: "1px",
+                }}
+              />
+              <div
+                className="relative w-16 h-16 rounded-full flex items-center
+                  justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg,rgba(212,178,106,0.15)," +
+                    "rgba(38,70,112,0.3))",
+                  border: "1px solid rgba(212,178,106,0.25)",
+                  boxShadow:
+                    "0 0 30px rgba(212,178,106,0.15)," +
+                    "inset 0 1px 0 rgba(255,255,255,0.08)",
+                }}
+              >
+                <Sparkles size={24} style={{ color: C.gold }} />
+              </div>
+            </div>
+
+            {/* Brand name */}
+            <div className="flex items-center gap-2">
+              {["C","r","a","f","t","N","e","s","t"].map((ch, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0  }}
+                  transition={{ delay: 0.2 + i * 0.04, duration: 0.4 }}
+                  className="text-xs font-black tracking-[0.18em] uppercase"
+                  style={{
+                    color: i === 5           // "N" — highlight split
+                      ? C.gold
+                      : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  {ch}
+                </motion.span>
+              ))}
+            </div>
           </motion.div>
 
-          {/* Animated greeting word */}
-          <div className="flex items-end justify-center gap-0 mb-3
-            min-h-[56px] sm:min-h-[72px]">
+          {/* ── Greeting word ──────────────────────────────────────── */}
+          <div
+            className="relative flex items-center justify-center
+              min-h-[64px] sm:min-h-[80px] mb-2 w-full px-6"
+            dir={dir}
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={word}
-                className="flex"
+                className={`flex flex-wrap justify-center ${fontSize} font-black`}
                 initial="hidden"
                 animate={phase === "out" ? "exit" : "visible"}
                 variants={{
                   hidden:  {},
-                  visible: { transition: { staggerChildren: 0.045 } },
-                  exit:    { transition: { staggerChildren: 0.025,
+                  visible: { transition: { staggerChildren: 0.04 } },
+                  exit:    { transition: { staggerChildren: 0.02,
                                staggerDirection: -1 } },
                 }}
               >
-                {letters.map((ch, i) => (
+                {[...word].map((ch, i) => (
                   <motion.span
                     key={i}
-                    className="text-5xl sm:text-6xl font-black"
                     style={{
-                      color:      "#ffffff",
-                      lineHeight: 1,
-                      display:    "inline-block",
-                      // Add slight spacing for non-latin scripts
-                      letterSpacing: /[\u0900-\u097F\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\uAC00-\uD7AF]/.test(ch)
-                        ? "0.05em" : "0",
+                      display:       "inline-block",
+                      color:         "#ffffff",
+                      lineHeight:    1.1,
+                      letterSpacing: isNonLatin ? "0.06em" : "-0.01em",
+                      textShadow:    "0 2px 20px rgba(212,178,106,0.2)",
                     }}
                     variants={{
-                      hidden:  { opacity: 0, y: 30,  filter: "blur(8px)"  },
-                      visible: { opacity: 1, y: 0,   filter: "blur(0px)",
-                        transition: { duration: 0.35,
-                          ease: [0.22, 1, 0.36, 1] } },
-                      exit:    { opacity: 0, y: -20, filter: "blur(6px)",
-                        transition: { duration: 0.2  } },
+                      hidden:  {
+                        opacity: 0,
+                        y:       40,
+                        rotateX: 90,
+                        filter:  "blur(10px)",
+                      },
+                      visible: {
+                        opacity: 1,
+                        y:       0,
+                        rotateX: 0,
+                        filter:  "blur(0px)",
+                        transition: {
+                          duration: 0.45,
+                          ease: [0.22, 1, 0.36, 1],
+                        },
+                      },
+                      exit: {
+                        opacity: 0,
+                        y:       -30,
+                        rotateX: -60,
+                        filter:  "blur(8px)",
+                        transition: { duration: 0.22 },
+                      },
                     }}
                   >
                     {ch === " " ? "\u00A0" : ch}
@@ -236,48 +351,105 @@ const WelcomeSplash = ({ firstName, onDone }) => {
             </AnimatePresence>
           </div>
 
-          {/* Language label */}
+          {/* ── Language pill ──────────────────────────────────────── */}
           <AnimatePresence mode="wait">
-            <motion.p
+            <motion.div
               key={lang}
-              initial={{ opacity: 0, y: 6  }}
-              animate={{ opacity: 1, y: 0  }}
-              exit={{    opacity: 0, y: -6 }}
-              transition={{ duration: 0.25 }}
-              className="text-[11px] font-bold uppercase tracking-[0.2em] mb-8"
-              style={{ color: "rgba(212,178,106,0.55)" }}
+              initial={{ opacity: 0, y: 8,  scale: 0.9 }}
+              animate={{ opacity: 1, y: 0,  scale: 1   }}
+              exit={{    opacity: 0, y: -8, scale: 0.9 }}
+              transition={{ duration: 0.22 }}
+              className="mb-10 px-4 py-1.5 rounded-full"
+              style={{
+                background: "rgba(212,178,106,0.08)",
+                border:     "1px solid rgba(212,178,106,0.18)",
+              }}
             >
-              {lang}
-            </motion.p>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em]"
+                style={{ color: "rgba(212,178,106,0.65)" }}>
+                {lang}
+              </p>
+            </motion.div>
           </AnimatePresence>
 
-          {/* "firstName to CraftNest" — always visible */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-            className="text-base sm:text-lg font-semibold text-center px-6"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+          {/* ── Name + tagline ─────────────────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0  }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            className="flex flex-col items-center gap-1 text-center px-8"
           >
-            <span style={{ color: C.gold }} className="font-black">
-              {firstName}
-            </span>
-            {" "}to CraftNest
-          </motion.p>
+            {/* Decorative divider */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-px"
+                style={{ background: "rgba(212,178,106,0.3)" }} />
+              <div className="w-1 h-1 rounded-full"
+                style={{ background: "rgba(212,178,106,0.5)" }} />
+              <div className="w-8 h-px"
+                style={{ background: "rgba(212,178,106,0.3)" }} />
+            </div>
 
-          {/* Progress bar */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2
-            w-28 h-[3px] rounded-full overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.1)" }}>
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: C.gold }}
-              initial={{ width: "0%" }}
-              animate={{
-                width: `${((index + 1) / GREETINGS.length) * 100}%`,
-              }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-            />
+            <p className="text-lg sm:text-xl font-semibold leading-snug"
+              style={{ color: "rgba(255,255,255,0.5)" }}>
+              <motion.span
+                className="font-black"
+                style={{ color: C.gold }}
+                animate={{ opacity: [0.8, 1, 0.8] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              >
+                {firstName}
+              </motion.span>
+              <span className="mx-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                ·
+              </span>
+              to CraftNest
+            </p>
+
+            <p className="text-[11px] mt-1"
+              style={{ color: "rgba(255,255,255,0.28)" }}>
+              Handcrafted with love, delivered with care
+            </p>
+          </motion.div>
+
+          {/* ── Progress area ──────────────────────────────────────── */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2
+            flex flex-col items-center gap-3 w-36">
+
+            {/* Dot indicators */}
+            <div className="flex items-center gap-1.5">
+              {GREETINGS.map((_, i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    width:      i === index ? 16 : 4,
+                    opacity:    i === index ? 1  : i < index ? 0.35 : 0.15,
+                    background: i === index ? C.gold : "#ffffff",
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="h-[3px] rounded-full"
+                />
+              ))}
+            </div>
+
+            {/* Thin progress bar */}
+            <div className="w-full h-[2px] rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.07)" }}>
+              <motion.div
+                className="h-full rounded-full"
+                style={{
+                  background:
+                    `linear-gradient(to right, ${C.gold}, #f5e6b8)`,
+                }}
+                animate={{ width: `${progress * 100}%` }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              />
+            </div>
+
+            {/* Counter */}
+            <p className="text-[9px] font-bold tracking-widest"
+              style={{ color: "rgba(255,255,255,0.2)" }}>
+              {index + 1} / {GREETINGS.length}
+            </p>
           </div>
         </motion.div>
       )}
@@ -285,20 +457,18 @@ const WelcomeSplash = ({ firstName, onDone }) => {
   );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // Main page
-// ══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 const UserHome = () => {
   const { user }                   = useAuth();
   const { totalItems, totalPrice } = useCart();
 
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
-  // Show splash only once per session
-  const [showSplash, setShowSplash] = useState(() => {
-    if (sessionStorage.getItem("craftnest_welcomed")) return false;
-    return true;
-  });
+  const [showSplash, setShowSplash] = useState(() =>
+    !sessionStorage.getItem("craftnest_welcomed")
+  );
 
   const handleSplashDone = () => {
     sessionStorage.setItem("craftnest_welcomed", "1");
@@ -340,57 +510,49 @@ const UserHome = () => {
 
   return (
     <>
-      {/* ── Welcome splash ──────────────────────────────────────────── */}
       {showSplash && (
         <WelcomeSplash firstName={firstName} onDone={handleSplashDone} />
       )}
 
-      {/* ── Main content ────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: showSplash ? 0 : 1 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.5 }}
         className="min-h-screen"
         style={{ background: C.bg }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
-          py-8 space-y-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-          {/* ── Welcome Banner ──────────────────────────────────────── */}
+          {/* ── Welcome banner ──────────────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0   }}
             transition={{ duration: 0.45, delay: 0.1 }}
-            className="relative rounded-3xl px-6 sm:px-10 py-8
-              sm:py-10 overflow-hidden"
+            className="relative rounded-3xl px-6 sm:px-10 py-8 sm:py-10
+              overflow-hidden"
             style={{
               background:
                 `linear-gradient(135deg,${C.navy} 0%,${C.navyLight} 100%)`,
               boxShadow: "0 8px 32px rgba(19,33,60,0.2)",
             }}
           >
-            {/* Dot texture */}
-            <div
-              className="absolute inset-0 opacity-[0.05] pointer-events-none"
+            <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
               style={{
                 backgroundImage:
                   "radial-gradient(circle,#d4b26a 1px,transparent 1px)",
                 backgroundSize: "24px 24px",
-              }}
-            />
-            {/* Gold top accent */}
+              }} />
             <div className="absolute top-0 left-0 right-0 h-[3px]"
               style={{
                 background:
                   "linear-gradient(to right,transparent,#d4b26a,transparent)",
               }} />
-            {/* Corner glow */}
-            <div className="absolute -top-12 -right-12 w-48 h-48
-              rounded-full blur-2xl pointer-events-none"
+            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full
+              blur-2xl pointer-events-none"
               style={{ background: "rgba(212,178,106,0.12)" }} />
 
-            <div className="relative flex flex-col sm:flex-row
-              items-start sm:items-center justify-between gap-5">
+            <div className="relative flex flex-col sm:flex-row items-start
+              sm:items-center justify-between gap-5">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles size={14} style={{ color: C.gold }} />
@@ -413,8 +575,8 @@ const UserHome = () => {
                 <motion.button
                   whileHover={{ scale: 1.04, y: -1 }}
                   whileTap={{   scale: 0.97          }}
-                  className="flex items-center gap-2 px-5 py-2.5
-                    rounded-2xl text-sm font-bold transition-all duration-200"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl
+                    text-sm font-bold transition-all duration-200"
                   style={{
                     background: "#ffffff",
                     color:      C.navy,
@@ -447,7 +609,7 @@ const UserHome = () => {
             </motion.div>
           </div>
 
-          {/* ── Cart summary banner ──────────────────────────────────── */}
+          {/* ── Cart banner ──────────────────────────────────────────── */}
           {totalItems > 0 && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -460,11 +622,9 @@ const UserHome = () => {
               }}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center
-                    justify-center flex-shrink-0"
-                  style={{ background: "rgba(212,178,106,0.2)" }}
-                >
+                <div className="w-9 h-9 rounded-xl flex items-center
+                  justify-center flex-shrink-0"
+                  style={{ background: "rgba(212,178,106,0.2)" }}>
                   <ShoppingCart size={16} style={{ color: C.gold }} />
                 </div>
                 <div>
@@ -496,14 +656,12 @@ const UserHome = () => {
             </motion.div>
           )}
 
-          {/* ── Featured Products ────────────────────────────────────── */}
-          <div
-            className="rounded-3xl overflow-hidden"
+          {/* ── Featured products ────────────────────────────────────── */}
+          <div className="rounded-3xl overflow-hidden"
             style={{
               border:    `1px solid ${C.border}`,
               boxShadow: "0 2px 16px rgba(19,33,60,0.05)",
-            }}
-          >
+            }}>
             <FeaturedProducts />
           </div>
         </div>
