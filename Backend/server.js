@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 5000;
 // ── Allowed origins ────────────────────────────────────────────────────────
 // CLIENT_URL can be a comma-separated list:
 // CLIENT_URL=https://craftnest-six.vercel.app,https://craftnest.vercel.app
-const EXPLICIT_ORIGINS = (process.env.CLIENT_URL || "")
+const EXPLICIT_ORIGINS = (process.env.CLIENT_URL || "https://rumman-portfolio-ryuu.vercel.app")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
